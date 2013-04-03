@@ -1,0 +1,6 @@
+Send Rate Policyd
+
+This simple daemon help you to limit the outbound rate of Postfix servers. Uses MySQL to store per user
+or domain rate limits
+
+For INSTALL doc refer to http://www.simonecaruso.com/limit-sender-rate-in-postfix/
