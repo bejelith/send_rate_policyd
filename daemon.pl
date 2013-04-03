@@ -246,7 +246,7 @@ sub handle_req {
 	}
 #	Should we block the transaction?
 #	if($quotahash{$skey}{'tally'} + $recipient_count > $quotahash{$skey}{'quota'}){
-#		return "471 Monthly message quota exceeded"; 
+#		return "471 $deltaconf message quota exceeded"; 
 #	}
 	$quotahash{$skey}{'tally'} += $recipient_count;
 	$quotahash{$skey}{'sum'} += $recipient_count;
