@@ -208,10 +208,11 @@ sub handle_req {
 				$quotahash{$skey}{'quota'} = $row[0];
 				$quotahash{$skey}{'tally'} = $row[1];
 				$quotahash{$skey}{'sum'} = 0;
+				#If expire column is null set new expire date
 				if($row[2]){
 					$quotahash{$skey}{'expire'} = $row[2];
 				}else{
-					$quotahash{$skey}{'expire'} = calcexpire($deltaconf);
+					$quotahash{$skey}{'expire'} = 0;
 				}
 				undef @row;
 			}
@@ -233,9 +234,9 @@ sub handle_req {
 		$sql_query->execute(0, $quotahash{$skey}{'expire'}, $skey)
 			or logger("Query error: ". $sql_query->errstr);
 	}
-#	Temporaneamente disabilitato
+#	Should we block the transaction?
 #	if($quotahash{$skey}{'tally'} + $recipient_count > $quotahash{$skey}{'quota'}){
-#		return "471 Monthly message quota exceeded"; 
+#		return "471 $deltaconf message quota exceeded"; 
 #	}
 	$quotahash{$skey}{'tally'} += $recipient_count;
 	$quotahash{$skey}{'sum'} += $recipient_count;
