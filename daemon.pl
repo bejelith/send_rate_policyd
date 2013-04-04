@@ -29,17 +29,7 @@ my $sql_getquota = "SELECT $db_quotacol, $db_tallycol, $db_timecol FROM $db_tabl
 my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = $db_tallycol + ?, $db_timecol = ? WHERE $db_wherecol = ?";
 #END OF CONFIGURATION SECTION
 $0=join(' ',($0,@ARGV));
-my $delta = 0;
 
-if($deltaconf eq 'monthly'){
-	$delta = 60*60*24*30;
-}elsif($deltaconf eq 'weekly'){
-	$delta = 60*60*24*7;
-}elsif($deltaconf eq 'daily'){
-	$delta = 60*60*24;
-}else{
-	$delta = 60*60*24*30;
-}
 if($ARGV[0] eq "printshm"){
 	my $out = `echo "printshm"|nc $listen_address $port`;
 	print $out;
