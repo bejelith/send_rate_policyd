@@ -121,12 +121,22 @@ sub start_thr {
 			while(!eof($client)) {
 				$message = <$client>;
 				if($message =~ m/printshm/){
+					my $r=0;
+					my $w =0;
 					print $client "Printing shm:\r\n";
 					print $client "Domain\t\t:\tQuota\t:\tUsed\t:\tExpire\r\n";
 					while(($k,$v) = each(%quotahash)){
 						chomp(my $exp = ctime($quotahash{$k}{'expire'}));
 						print $client "$k\t:\t".$quotahash{$k}{'quota'}."\t:\t $quotahash{$k}{'tally'}\t:\t$exp\r\n";
 					}
+					while (my ($k, $v) = each(%scoreboard)){
+						if($v eq 'running'){
+							$r++;
+						}else{
+							$w++;
+						}
+					}
+					print $client "Threads running: $r, Threads waiting: $w\r\n";
 					last;
 				}elsif($message =~ m/=/){
 					push(@buf, $message);
@@ -154,6 +164,7 @@ sub start_thr {
 		undef $client;
 		logger("TID: $threadid Client $client_ipnum disconnected.");
 	}
+	undef $scoreboard{$threadid};
 	threads->exit(0);
 }
 
@@ -185,7 +196,6 @@ sub handle_req {
 	#}
 
 	if($protocol_state !~ m/DATA/ || $sasl_username eq "" ){
-		logger("Exting handler_req, protocol_state=$protocol_state - sasl_user=$sasl_username");
 		return "ok";
 	}
 	
@@ -208,10 +218,10 @@ sub handle_req {
 				$quotahash{$skey}{'quota'} = $row[0];
 				$quotahash{$skey}{'tally'} = $row[1];
 				$quotahash{$skey}{'sum'} = 0;
-				#If expire column is null set new expire date
 				if($row[2]){
 					$quotahash{$skey}{'expire'} = $row[2];
 				}else{
+					#$quotahash{$skey}{'expire'} = calcexpire($deltaconf);
 					$quotahash{$skey}{'expire'} = 0;
 				}
 				undef @row;
@@ -234,9 +244,9 @@ sub handle_req {
 		$sql_query->execute(0, $quotahash{$skey}{'expire'}, $skey)
 			or logger("Query error: ". $sql_query->errstr);
 	}
-#	Should we block the transaction?
+#	Temporaneamente disabilitato
 #	if($quotahash{$skey}{'tally'} + $recipient_count > $quotahash{$skey}{'quota'}){
-#		return "471 $deltaconf message quota exceeded"; 
+#		return "471 Monthly message quota exceeded"; 
 #	}
 	$quotahash{$skey}{'tally'} += $recipient_count;
 	$quotahash{$skey}{'sum'} += $recipient_count;
