@@ -263,7 +263,7 @@ sub sigterm_handler {
 sub commit_cache {
 	my $dbh = DBI->connect($dsn, $db_user, $db_passwd);
 	my $sql_query = $dbh->prepare($sql_updatequota);
-	lock($lock);
+	#lock($lock); -- lock at upper level
 	while(($k,$v) = each(%quotahash)){
 		$sql_query->execute($quotahash{$k}{'sum'}, $quotahash{$k}{'expire'}, $k)
 			or logger("Query error:".$sql_query->errstr);
