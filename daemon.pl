@@ -304,8 +304,8 @@ sub daemonize {
 	open LOG, ">>$LOGFILE" or die "Unable to open $LOGFILE: $!\n";
 	select((select(LOG), $|=1)[0]);
 	open STDERR, ">>$LOGFILE" or die "Unable to redirect STDERR to STDOUT: $!\n";
-	open PID, ">/var/run/".basename($0) or die $!;
-	print PID $$;
+	open PID, ">/var/run/".basename($0).".pid" or die $!;
+	print PID $$."\n";
 	close PID;
 	umask $mask;
 }
