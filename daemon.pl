@@ -23,7 +23,7 @@ my $db_quotacol = 'messagequota';
 my $db_tallycol = 'messagetally';
 my $db_timecol = 'timestamp';
 my $db_wherecol = 'name';
-my $deltaconf = 'monthly'; #daily, weekly, monthly
+my $deltaconf = 'hourly'; #hourly, daily, weekly, monthly
 my $sql_getquota = "SELECT $db_quotacol, $db_tallycol, $db_timecol FROM $db_table WHERE $db_wherecol = ? AND $db_quotacol > 0";
 #my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = ?, $db_timecol = ? WHERE $db_wherecol = ?";
 my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = $db_tallycol + ?, $db_timecol = ? WHERE $db_wherecol = ?";
@@ -311,18 +311,20 @@ sub daemonize {
 }
 
 sub calcexpire{
-	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
-	my ($arg) = @_;
-	if($arg eq 'monthly'){
-		$exp = mktime (0, 0, 0, 1, ++$mon, $year);
-	}elsif($arg eq 'weekly'){
-		$exp = mktime (0, 0, 0, 1, $mon, $year);
-	}elsif($arg eq 'daily'){
-		$exp = mktime (0, 0, 0, ++$mday, $mon, $year);
-	}else{
-		$exp = mktime (0, 0, 0, 1, ++$mon, $year);
-	}
-	return $exp;
+        my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
+        my ($arg) = @_;
+        if($arg eq 'monthly'){
+                $exp = mktime (0, 0, 0, 1, ++$mon, $year);
+        }elsif($arg eq 'weekly'){
+                $exp = mktime (0, 0, 0, 1, $mon, $year);
+        }elsif($arg eq 'daily'){
+                $exp = mktime (0, 0, 0, ++$mday, $mon, $year);
+        }elsif($arg eq 'hourly'){
+                $exp = mktime (0, $min, ++$hour, $mday, $mon, $year);
+        }else{
+                $exp = mktime (0, 0, 0, 1, ++$mon, $year);
+        }
+        return $exp;
 }
 
 sub logger {
