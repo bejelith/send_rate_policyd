@@ -244,9 +244,9 @@ sub handle_req {
 		$sql_query->execute(0, $quotahash{$skey}{'expire'}, $skey)
 			or logger("Query error: ". $sql_query->errstr);
 	}
-#	if($quotahash{$skey}{'tally'} + $recipient_count > $quotahash{$skey}{'quota'}){
-#		return "471 $deltaconf message quota exceeded"; 
-#	}
+	if($quotahash{$skey}{'tally'} + $recipient_count > $quotahash{$skey}{'quota'}){
+		return "471 $deltaconf message quota exceeded"; 
+	}
 	$quotahash{$skey}{'tally'} += $recipient_count;
 	$quotahash{$skey}{'sum'} += $recipient_count;
 	return "dunno";
