@@ -25,7 +25,7 @@ my $db_timecol = 'timestamp';
 my $db_wherecol = 'name';
 my $deltaconf = 'hourly'; #hourly, daily, weekly, monthly
 my $sql_getquota = "SELECT $db_quotacol, $db_tallycol, $db_timecol FROM $db_table WHERE $db_wherecol = ? AND $db_quotacol > 0";
-my $sql_updatequota2 = "UPDATE $db_table SET $db_tallycol = ?, $db_timecol = ? WHERE $db_wherecol = ?";
+#my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = ?, $db_timecol = ? WHERE $db_wherecol = ?";
 my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = $db_tallycol + ?, $db_timecol = ? WHERE $db_wherecol = ?";
 #END OF CONFIGURATION SECTION
 $0=join(' ',($0,@ARGV));
@@ -240,7 +240,7 @@ sub handle_req {
 		$quotahash{$skey}{'tally'} = 0;
 		$quotahash{$skey}{'expire'} = calcexpire($deltaconf);
 		my $dbh = DBI->connect($dsn, $db_user, $db_passwd);
-	        my $sql_query = $dbh->prepare($sql_updatequota2);
+	        my $sql_query = $dbh->prepare($sql_updatequota);
 		$sql_query->execute(0, $quotahash{$skey}{'expire'}, $skey)
 			or logger("Query error: ". $sql_query->errstr);
 	}
