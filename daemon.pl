@@ -9,24 +9,24 @@ use Thread::Semaphore;
 use File::Basename;
 my $semaphore = new Thread::Semaphore;
 #CONFIGURATION SECTION
-my @allowedhosts = ('127.0.0.1', '10.0.0.1');
-my $LOGFILE = "/var/log/policyd.log";
+#my @allowedhosts = ('127.0.0.1', '10.0.0.1');
+my $LOGFILE = "/var/log/ardeekpolicyd2.log";
 chomp( my $vhost_dir = `pwd`);
 my $port = 381;
 my $listen_address = '0.0.0.0';
 my $s_key_type = 'domain'; #domain or email
-my $dsn = "DBI:mysql:database:127.0.0.1";
-my $db_user = '******';
-my $db_passwd = '**********';
+my $dsn = "DBI:mysql:DBNAME:127.0.0.1";
+my $db_user = '*********';
+my $db_passwd = '***************';
 my $db_table = 'domains';
 my $db_quotacol = 'messagequota';
 my $db_tallycol = 'messagetally';
 my $db_timecol = 'timestamp';
 my $db_wherecol = 'name';
-my $deltaconf = 'hourly'; #hourly, daily, weekly, monthly
+my $deltaconf = 'monthly'; #daily, weekly, monthly
 my $sql_getquota = "SELECT $db_quotacol, $db_tallycol, $db_timecol FROM $db_table WHERE $db_wherecol = ? AND $db_quotacol > 0";
-#my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = ?, $db_timecol = ? WHERE $db_wherecol = ?";
-my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = $db_tallycol + ?, $db_timecol = ? WHERE $db_wherecol = ?";
+my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = $db_tallycol + ? WHERE $db_wherecol = ?";
+my $sql_resetquota = "UPDATE $db_table SET $db_tallycol = 0 , $db_timecol = ? WHERE $db_wherecol = ?";
 #END OF CONFIGURATION SECTION
 $0=join(' ',($0,@ARGV));
 
@@ -114,8 +114,6 @@ sub start_thr {
 		$|=1;
 	
 		if(grep $_ eq $client_ipnum, @allowedhosts){
-			#my $client_host = gethostbyaddr($client_ip, AF_INET);
-			#if (! defined ($client_host)) { $client_host=$client_ipnum;}
 			my $message;
 			my @buf;
 			while(!eof($client)) {
@@ -124,10 +122,10 @@ sub start_thr {
 					my $r=0;
 					my $w =0;
 					print $client "Printing shm:\r\n";
-					print $client "Domain\t\t:\tQuota\t:\tUsed\t:\tExpire\r\n";
+					print $client "Domain\t\t:\tQuota\t:\tUsed\t:\t Sum \t:\tExpire\r\n";
 					while(($k,$v) = each(%quotahash)){
 						chomp(my $exp = ctime($quotahash{$k}{'expire'}));
-						print $client "$k\t:\t".$quotahash{$k}{'quota'}."\t:\t $quotahash{$k}{'tally'}\t:\t$exp\r\n";
+						print $client "$k\t:\t".$quotahash{$k}{'quota'}."\t:\t $quotahash{$k}{'tally'}\t:\t$quotahash{$k}{'sum'}\t:\t $exp\r\n";
 					}
 					while (my ($k, $v) = each(%scoreboard)){
 						if($v eq 'running'){
@@ -209,14 +207,23 @@ sub handle_req {
 	lock($lock);
 	if(!exists($quotahash{$skey})){
 		logger("Looking for $skey");
-		my $dbh = DBI->connect($dsn, $db_user, $db_passwd);
-		my $sql_query = $dbh->prepare($sql_getquota);
-		$sql_query->execute($skey);
-		if($sql_query->rows > 0){
+		if(my $dbh = DBI->connect($dsn, $db_user, $db_passwd)){
+		
+			my $sql_query = $dbh->prepare($sql_getquota);
+			$sql_query->execute($skey);
+			if($sql_query->rows < 1){
+				$sql_query->finish();
+                                $dbh->disconnect;
+                                return "dunno";
+			}
 			while(@row = $sql_query->fetchrow_array()){
 				$quotahash{$skey} = &share({});
 				$quotahash{$skey}{'quota'} = $row[0];
-				$quotahash{$skey}{'tally'} = $row[1];
+				if($row[1]){
+					$quotahash{$skey}{'tally'} = $row[1];
+				} else {
+					$quotahash{$skey}{'tally'} = 0;
+				}
 				$quotahash{$skey}{'sum'} = 0;
 				if($row[2]){
 					$quotahash{$skey}{'expire'} = $row[2];
@@ -228,9 +235,8 @@ sub handle_req {
 			}
 			$sql_query->finish();
 			$dbh->disconnect;
-		}else{
-			$sql_query->finish();
-			$dbh->disconnect;
+		} else {
+			logger("Error connection to database: " . $DBI::errstr);
 			return "dunno";
 		}
 	}
@@ -240,12 +246,13 @@ sub handle_req {
 		$quotahash{$skey}{'tally'} = 0;
 		$quotahash{$skey}{'expire'} = calcexpire($deltaconf);
 		my $dbh = DBI->connect($dsn, $db_user, $db_passwd);
-	        my $sql_query = $dbh->prepare($sql_updatequota);
-		$sql_query->execute(0, $quotahash{$skey}{'expire'}, $skey)
+	        my $sql_query = $dbh->prepare($sql_resetquota);
+		$sql_query->execute($quotahash{$skey}{'expire'}, $skey)
 			or logger("Query error: ". $sql_query->errstr);
+
 	}
 	if($quotahash{$skey}{'tally'} + $recipient_count > $quotahash{$skey}{'quota'}){
-		return "471 $deltaconf message quota exceeded"; 
+		return "471 Message quota exceeded"; 
 	}
 	$quotahash{$skey}{'tally'} += $recipient_count;
 	$quotahash{$skey}{'sum'} += $recipient_count;
@@ -261,19 +268,20 @@ sub sigterm_handler {
 }
 
 sub commit_cache {
-	my $dbh = DBI->connect($dsn, $db_user, $db_passwd);
-	my $sql_query = $dbh->prepare($sql_updatequota);
-	#lock($lock); -- lock at upper level
-	while(($k,$v) = each(%quotahash)){
-		$sql_query->execute($quotahash{$k}{'sum'}, $quotahash{$k}{'expire'}, $k)
-			or logger("Query error:".$sql_query->errstr);
-		$quotahash{$k}{'sum'} = 0;
+	if(my $dbh = DBI->connect($dsn, $db_user, $db_passwd)){
+		my $sql_query = $dbh->prepare($sql_updatequota);
+		while(($k,$v) = each(%quotahash)){
+			$sql_query->execute($quotahash{$k}{'sum'}, $k)
+				or logger("Query error:".$sql_query->errstr);
+			$quotahash{$k}{'sum'} = 0;
+		}
+		$dbh->disconnect;
+	} else {
+		logger("Error connection to database: " . $DBI::errstr);
 	}
-	$dbh->disconnect;
 }
 
 sub flush_cache {
-	lock($lock);
 	foreach $k(keys %quotahash){
 		delete $quotahash{$k};
 	}
@@ -281,7 +289,7 @@ sub flush_cache {
 
 sub print_cache {
 	foreach $k(keys %quotahash){
-        logger("$k: $quotahash{$k}{'quota'}, $quotahash{$k}{'tally'}");
+        logger("$k: $quotahash{$k}{'quota'}, $quotahash{$k}{'tally'}, $quotahash{$k}{'sum'}");
     }
 }
 
@@ -304,27 +312,25 @@ sub daemonize {
 	open LOG, ">>$LOGFILE" or die "Unable to open $LOGFILE: $!\n";
 	select((select(LOG), $|=1)[0]);
 	open STDERR, ">>$LOGFILE" or die "Unable to redirect STDERR to STDOUT: $!\n";
-	open PID, ">/var/run/".basename($0).".pid" or die $!;
-	print PID $$."\n";
+	open PID, ">/var/run/".basename($0) or die $!;
+	print PID $$;
 	close PID;
 	umask $mask;
 }
 
 sub calcexpire{
-        my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
-        my ($arg) = @_;
-        if($arg eq 'monthly'){
-                $exp = mktime (0, 0, 0, 1, ++$mon, $year);
-        }elsif($arg eq 'weekly'){
-                $exp = mktime (0, 0, 0, 1, $mon, $year);
-        }elsif($arg eq 'daily'){
-                $exp = mktime (0, 0, 0, ++$mday, $mon, $year);
-        }elsif($arg eq 'hourly'){
-                $exp = mktime (0, $min, ++$hour, $mday, $mon, $year);
-        }else{
-                $exp = mktime (0, 0, 0, 1, ++$mon, $year);
-        }
-        return $exp;
+	my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
+	my ($arg) = @_;
+	if($arg eq 'monthly'){
+		$exp = mktime (0, 0, 0, 1, ++$mon, $year);
+	}elsif($arg eq 'weekly'){
+		$exp = mktime (0, 0, 0, 1, $mon, $year);
+	}elsif($arg eq 'daily'){
+		$exp = mktime (0, 0, 0, ++$mday, $mon, $year);
+	}else{
+		$exp = mktime (0, 0, 0, 1, ++$mon, $year);
+	}
+	return $exp;
 }
 
 sub logger {
