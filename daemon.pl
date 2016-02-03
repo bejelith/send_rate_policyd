@@ -24,7 +24,9 @@ my $db_tallycol = 'message_tally';
 my $db_timecol = 'timestamp';
 my $db_wherecol = 'name';
 my $deltaconf = 'daily'; #daily, weekly, monthly
+my $default_quota = 100; #used, when domain not yet found
 my $sql_getquota = "SELECT $db_quotacol, $db_tallycol, $db_timecol FROM $db_table WHERE $db_wherecol = ? AND $db_quotacol > 0";
+my $sql_insertquota = "INSERT INTO $db_table SET $db_where = ?, $db_quotacol=?, $db_tallycol = 1, $db_timecol=0";
 my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = $db_tallycol + ? WHERE $db_wherecol = ?";
 my $sql_resetquota = "UPDATE $db_table SET $db_tallycol = 0 , $db_timecol = ? WHERE $db_wherecol = ?";
 #END OF CONFIGURATION SECTION
@@ -213,8 +215,23 @@ sub handle_req {
 			$sql_query->execute($skey);
 			if($sql_query->rows < 1){
 				$sql_query->finish();
-                                $dbh->disconnect;
-                                return "dunno";
+                                #$dbh->disconnect;
+                                #return "dunno";
+                                #Add new default quota for this domain
+                                $sql_query = $dbh->prepare($sql_insertquota);
+                                $sql_query->execute($skey, $default_quota)
+					or logger("Query error while inserting new default quota: ". $sql_query->errstr);
+                        	$sql_query->finish();
+                        	#Check new quota, maybe ommit?
+                        	$sql_query = $dbh->prepare($sql_getquota);
+                        	$sql_query->execute($skey);
+				if($sql_query->rows < 1){
+					# could not find new quota, error in db?
+					$sql_query->finish();
+                                	$dbh->disconnect;
+                                	logger("Error could not find new default quota for $key");
+                                	return "dunno";
+				}
 			}
 			while(@row = $sql_query->fetchrow_array()){
 				$quotahash{$skey} = &share({});
