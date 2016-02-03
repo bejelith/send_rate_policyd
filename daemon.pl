@@ -8,7 +8,7 @@ use threads::shared;
 use Thread::Semaphore; 
 use File::Basename;
 my $semaphore = new Thread::Semaphore;
-#CONFIGURATION SECTION
+### CONFIGURATION SECTION
 my @allowedhosts = ('127.0.0.1');
 my $LOGFILE = "/var/log/send_rate_policyd.log";
 chomp( my $vhost_dir = `pwd`);
@@ -25,11 +25,12 @@ my $db_timecol = 'timestamp';
 my $db_wherecol = 'name';
 my $deltaconf = 'daily'; #daily, weekly, monthly
 my $default_quota = 100; #used, when domain not yet found
+### QUERY CONFIGURATION
 my $sql_getquota = "SELECT $db_quotacol, $db_tallycol, $db_timecol FROM $db_table WHERE $db_wherecol = ? AND $db_quotacol > 0";
 my $sql_insertquota = "INSERT INTO $db_table SET $db_where = ?, $db_quotacol=?, $db_tallycol = 1, $db_timecol=0";
 my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = $db_tallycol + ? WHERE $db_wherecol = ?";
 my $sql_resetquota = "UPDATE $db_table SET $db_tallycol = 0 , $db_timecol = ? WHERE $db_wherecol = ?";
-#END OF CONFIGURATION SECTION
+### END OF CONFIGURATION SECTION
 $0=join(' ',($0,@ARGV));
 
 if($ARGV[0] eq "printshm"){
