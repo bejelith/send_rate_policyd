@@ -27,7 +27,7 @@ my $deltaconf = 'daily'; #daily, weekly, monthly
 my $default_quota = 100; #used, when domain not yet found
 ### QUERY CONFIGURATION
 my $sql_getquota = "SELECT $db_quotacol, $db_tallycol, $db_timecol FROM $db_table WHERE $db_wherecol = ? AND $db_quotacol > 0";
-my $sql_insertquota = "INSERT INTO $db_table SET $db_where = ?, $db_quotacol=?, $db_tallycol = 1, $db_timecol=0";
+my $sql_insertquota = "INSERT INTO $db_table SET $db_wherecol = ?, $db_quotacol=?, $db_tallycol = 1, $db_timecol=0";
 my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = $db_tallycol + ? WHERE $db_wherecol = ?";
 my $sql_resetquota = "UPDATE $db_table SET $db_tallycol = 0 , $db_timecol = ? WHERE $db_wherecol = ?";
 ### END OF CONFIGURATION SECTION
@@ -230,7 +230,7 @@ sub handle_req {
 					# could not find new quota, error in db?
 					$sql_query->finish();
                                 	$dbh->disconnect;
-                                	logger("Error could not find new default quota for $key");
+                                	logger("Error could not find new default quota for $skey");
                                 	return "dunno";
 				}
 			}
