@@ -344,8 +344,14 @@ sub calcexpire{
 		$exp = mktime (0, 0, 0, 1, $mon, $year);
 	}elsif($arg eq 'daily'){
 		$exp = mktime (0, 0, 0, ++$mday, $mon, $year);
+	}elsif($arg eq 'hourly'){
+		#mktime($sec,$min,$hour,$mday,$mon,$year);
+		$exp = mktime (0, 0, ++$hour, $mday, $mon, $year);
+	}elsif($arg eq 'minutely'){
+		#mktime($sec,$min,$hour,$mday,$mon,$year);
+		$exp = mktime (0, ++$min, $hour, $mday, $mon, $year);
 	}else{
-		$exp = mktime (0, 0, 0, 1, ++$mon, $year);
+		$exp = mktime (0, 0, 0, 1, ++$mon, $year); #default = monthly
 	}
 	return $exp;
 }
