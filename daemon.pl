@@ -9,21 +9,21 @@ use Thread::Semaphore;
 use File::Basename;
 my $semaphore = new Thread::Semaphore;
 #CONFIGURATION SECTION
-#my @allowedhosts = ('127.0.0.1', '10.0.0.1');
-my $LOGFILE = "/var/log/ardeekpolicyd2.log";
+my @allowedhosts = ('127.0.0.1');
+my $LOGFILE = "/var/log/send_rate_policyd.log";
 chomp( my $vhost_dir = `pwd`);
-my $port = 381;
-my $listen_address = '0.0.0.0';
+my $port = 10381;
+my $listen_address = '127.0.0.1';
 my $s_key_type = 'domain'; #domain or email
 my $dsn = "DBI:mysql:DBNAME:127.0.0.1";
 my $db_user = '*********';
 my $db_passwd = '***************';
-my $db_table = 'domains';
-my $db_quotacol = 'messagequota';
-my $db_tallycol = 'messagetally';
+my $db_table = 'email_sender_rate';
+my $db_quotacol = 'message_quota';
+my $db_tallycol = 'message_tally';
 my $db_timecol = 'timestamp';
 my $db_wherecol = 'name';
-my $deltaconf = 'monthly'; #daily, weekly, monthly
+my $deltaconf = 'daily'; #daily, weekly, monthly
 my $sql_getquota = "SELECT $db_quotacol, $db_tallycol, $db_timecol FROM $db_table WHERE $db_wherecol = ? AND $db_quotacol > 0";
 my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = $db_tallycol + ? WHERE $db_wherecol = ?";
 my $sql_resetquota = "UPDATE $db_table SET $db_tallycol = 0 , $db_timecol = ? WHERE $db_wherecol = ?";
