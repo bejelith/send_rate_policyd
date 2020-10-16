@@ -8,26 +8,29 @@ use threads::shared;
 use Thread::Semaphore; 
 use File::Basename;
 my $semaphore = new Thread::Semaphore;
-#CONFIGURATION SECTION
-#my @allowedhosts = ('127.0.0.1', '10.0.0.1');
-my $LOGFILE = "/var/log/ardeekpolicyd2.log";
+### CONFIGURATION SECTION
+my @allowedhosts = ('127.0.0.1');
+my $LOGFILE = "/var/log/send_rate_policyd.log";
 chomp( my $vhost_dir = `pwd`);
-my $port = 381;
-my $listen_address = '0.0.0.0';
+my $port = 10381;
+my $listen_address = '127.0.0.1';
 my $s_key_type = 'domain'; #domain or email
 my $dsn = "DBI:mysql:DBNAME:127.0.0.1";
 my $db_user = '*********';
 my $db_passwd = '***************';
-my $db_table = 'domains';
-my $db_quotacol = 'messagequota';
-my $db_tallycol = 'messagetally';
+my $db_table = 'email_sender_rate';
+my $db_quotacol = 'message_quota';
+my $db_tallycol = 'message_tally';
 my $db_timecol = 'timestamp';
 my $db_wherecol = 'name';
-my $deltaconf = 'monthly'; #daily, weekly, monthly
+my $deltaconf = 'daily'; #daily, weekly, monthly
+my $default_quota = 100; #used, when domain not yet found
+### QUERY CONFIGURATION
 my $sql_getquota = "SELECT $db_quotacol, $db_tallycol, $db_timecol FROM $db_table WHERE $db_wherecol = ? AND $db_quotacol > 0";
+my $sql_insertquota = "INSERT INTO $db_table SET $db_wherecol = ?, $db_quotacol=?, $db_tallycol = 1, $db_timecol=0";
 my $sql_updatequota = "UPDATE $db_table SET $db_tallycol = $db_tallycol + ? WHERE $db_wherecol = ?";
 my $sql_resetquota = "UPDATE $db_table SET $db_tallycol = 0 , $db_timecol = ? WHERE $db_wherecol = ?";
-#END OF CONFIGURATION SECTION
+### END OF CONFIGURATION SECTION
 $0=join(' ',($0,@ARGV));
 
 if($ARGV[0] eq "printshm"){
@@ -213,8 +216,23 @@ sub handle_req {
 			$sql_query->execute($skey);
 			if($sql_query->rows < 1){
 				$sql_query->finish();
-                                $dbh->disconnect;
-                                return "dunno";
+                                #$dbh->disconnect;
+                                #return "dunno";
+                                #Add new default quota for this domain
+                                $sql_query = $dbh->prepare($sql_insertquota);
+                                $sql_query->execute($skey, $default_quota)
+					or logger("Query error while inserting new default quota: ". $sql_query->errstr);
+                        	$sql_query->finish();
+                        	#Check new quota, maybe ommit?
+                        	$sql_query = $dbh->prepare($sql_getquota);
+                        	$sql_query->execute($skey);
+				if($sql_query->rows < 1){
+					# could not find new quota, error in db?
+					$sql_query->finish();
+                                	$dbh->disconnect;
+                                	logger("Error could not find new default quota for $skey");
+                                	return "dunno";
+				}
 			}
 			while(@row = $sql_query->fetchrow_array()){
 				$quotahash{$skey} = &share({});
@@ -327,8 +345,14 @@ sub calcexpire{
 		$exp = mktime (0, 0, 0, 1, $mon, $year);
 	}elsif($arg eq 'daily'){
 		$exp = mktime (0, 0, 0, ++$mday, $mon, $year);
+	}elsif($arg eq 'hourly'){
+		#mktime($sec,$min,$hour,$mday,$mon,$year);
+		$exp = mktime (0, 0, ++$hour, $mday, $mon, $year);
+	}elsif($arg eq 'minutely'){
+		#mktime($sec,$min,$hour,$mday,$mon,$year);
+		$exp = mktime (0, ++$min, $hour, $mday, $mon, $year);
 	}else{
-		$exp = mktime (0, 0, 0, 1, ++$mon, $year);
+		$exp = mktime (0, 0, 0, 1, ++$mon, $year); #default = monthly
 	}
 	return $exp;
 }

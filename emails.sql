@@ -1,27 +1,20 @@
-CREATE TABLE IF NOT EXISTS `emails` (
-`id` int(11) NOT NULL,
-  `email` varchar(65) NOT NULL,
-  `messagequota` int(10) unsigned NOT NULL DEFAULT '0',
-  `messagetally` int(10) unsigned NOT NULL DEFAULT '0',
-  `timestamp` int(10) unsigned DEFAULT NULL
-) ENGINE=InnoDB  DEFAULT CHARSET=latin1 AUTO_INCREMENT=2 ;
+CREATE TABLE IF NOT EXISTS `email_sender_rate` (
+  `sender_rate_id` int(11) NOT NULL,
+  `domain` varchar(65) NOT NULL,
+  `message_quota` int(10) NOT NULL DEFAULT '0',
+  `message_tally` int(10) NOT NULL DEFAULT '0',
+  `timestamp` int(10) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
 
 --
--- Indexes for dumped tables
+-- Index for table `email_sender_rate`
 --
+ALTER TABLE `email_sender_rate`
+  ADD PRIMARY KEY (`sender_rate_id`);
 
 --
--- Indexes for table `emails`
+-- AUTO_INCREMENT for table `email_sender_rate`
 --
-ALTER TABLE `emails`
- ADD PRIMARY KEY (`id`);
-
---
--- AUTO_INCREMENT for dumped tables
---
-
---
--- AUTO_INCREMENT for table `emails`
---
-ALTER TABLE `emails`
-MODIFY `id` int(11) NOT NULL AUTO_INCREMENT,AUTO_INCREMENT=2;
+ALTER TABLE `email_sender_rate`
+  MODIFY `sender_rate_id` int(11) NOT NULL AUTO_INCREMENT;
